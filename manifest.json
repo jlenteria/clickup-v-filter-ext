@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "ClickUp View Filter",
+  "version": "0.6.0",
+  "description": "Hides specific messages in your own ClickUp view only. Does not delete or modify ClickUp data.",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://app.clickup.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://app.clickup.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "ClickUp View Filter"
+  },
+  "commands": {
+    "toggle-hidden": {
+      "description": "Show or hide messages hidden by ClickUp View Filter"
+    },
+    "toggle-controls": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Show or hide message Hide buttons"
+    }
+  }
+}

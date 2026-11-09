@@ -1,0 +1,122 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ClickUp View Filter regression tests</title>
+<pre id="results">Running…</pre>
+<div id="fixture"></div>
+<script>
+const stored = { clickupHideConfig: { enabled: true, messages: ['legacy ignored text'], debugOutline: true, channelFilter: '' } };
+const storageListeners = [];
+let receive;
+window.chrome = {
+  storage: {
+    local: {
+      async get() { return structuredClone(stored); },
+      async set(values) {
+        const changes = {};
+        for (const [key, value] of Object.entries(values)) {
+          changes[key] = { newValue: structuredClone(value) };
+          stored[key] = structuredClone(value);
+        }
+        storageListeners.forEach((fn) => fn(changes, 'local'));
+      },
+    },
+    onChanged: { addListener(fn) { storageListeners.push(fn); } },
+  },
+  runtime: { onMessage: { addListener(fn) { receive = fn; } } },
+};
+</script>
+<script src="../content.js"></script>
+<script>
+(async () => {
+  const fixture = document.getElementById('fixture');
+  const results = [];
+  const assert = (condition, label) => {
+    if (!condition) throw new Error(label);
+    results.push('PASS ' + label);
+  };
+  const request = (type) => new Promise((resolve) => receive({ type }, {}, resolve));
+  const config = async (change) => {
+    await chrome.storage.local.set({ clickupHideConfig: { ...stored.clickupHideConfig, ...change } });
+    // Let the async storage reload finish, then synchronously scan.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return request('cvf:rescan');
+  };
+  const hidden = (id) => document.getElementById(id).style.display === 'none';
+  const markup = () => `
+    <nav><div class="cu-chat-message" id="navigation">target, phrase</div></nav>
+    <div class="cu-chat-messages" id="feed">
+      <div class="cu-chat-message" data-message-id="one" id="one" style="display:flex!important">
+        <div class="cu-chat-message__content"><p>Target, <strong>phrase</strong></p></div>
+      </div>
+      <div class="cu-chat-message" data-message-id="two" id="two"><p>Other message</p></div>
+      <div class="cu-chat-message" id="three"><p>Manual text</p><time>12:30</time></div>
+    </div>
+    <div contenteditable="true"><div class="cu-chat-message" id="composer">target, phrase</div></div>
+  `;
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    fixture.innerHTML = markup();
+    let status = await request('cvf:rescan');
+    assert(!fixture.querySelector('[data-cvf-hide-btn]') && !status.controlsVisible, 'Hide buttons are off by default');
+    await request('cvf:toggle-controls');
+    assert(document.querySelector('#two [data-cvf-hide-btn]'), 'command shows message Hide buttons');
+    assert(!document.querySelector('#navigation [data-cvf-hide-btn]') && !document.querySelector('#composer [data-cvf-hide-btn]'), 'no buttons in navigation or composer');
+    document.querySelector('#two [data-cvf-hide-btn]').click();
+    assert(hidden('two') && !hidden('one') && !hidden('feed'), 'manual Hide affects only the selected message');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await request('cvf:toggle-controls');
+    assert(!fixture.querySelector('[data-cvf-hide-btn]') && hidden('two'), 'command hides controls without revealing saved hides');
+    fixture.innerHTML = markup();
+    await request('cvf:rescan');
+    assert(hidden('two') && !fixture.querySelector('[data-cvf-hide-btn]'), 'saved hide survives remount with controls off');
+    await request('cvf:toggle');
+    assert(!hidden('two'), 'Show hidden reveals selected messages');
+    await request('cvf:toggle');
+    assert(hidden('two'), 'Hide again restores filtering');
+    await request('cvf:toggle-controls');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    assert(!fixture.querySelector('[data-cvf-hide-btn]'), 'Escape closes controls');
+    await config({ enabled: false });
+    assert(!hidden('two'), 'disabling restores hidden messages');
+    status = await request('cvf:toggle-controls');
+    assert(!status.controlsVisible, 'cannot enable controls while filtering is paused');
+    await config({ enabled: true, channelFilter: 'different-channel' });
+    assert(!hidden('two'), 'nonmatching channel restores messages');
+    await config({ channelFilter: '' });
+    assert(hidden('two'), 'blank channel applies saved hides');
+    await request('cvf:reveal-all');
+    assert(!hidden('two'), 'Restore all clears saved hides');
+    fixture.innerHTML = `<div role="log" id="row-feed">
+      <div id="complete-row"><header><img alt="profile"><span class="author">Zenita</span><time>12:36 PM</time></header>
+        <div class="cu-chat-message" data-message-id="complete"><div class="message-content">whole row</div></div>
+      </div>
+      <div class="cu-chat-message" id="other-row">Other message</div>
+    </div>`;
+    await request('cvf:toggle-controls');
+    document.querySelector('#complete-row [data-cvf-hide-btn]').click();
+    assert(hidden('complete-row') && !hidden('other-row') && !hidden('row-feed'), 'hides the profile, name and timestamp with the selected message');
+    await request('cvf:toggle-controls');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const row = document.getElementById('complete-row');
+    row.querySelector('.message-content').textContent = 'Edited text';
+    await request('cvf:rescan');
+    assert(hidden('complete-row'), 'stable message ID survives edits');
+    const dynamic = document.createElement('div');
+    dynamic.className = 'cu-chat-message';
+    dynamic.textContent = 'New message';
+    fixture.appendChild(dynamic);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    assert(!dynamic.querySelector('[data-cvf-hide-btn]'), 'new messages do not expose controls when selection is off');
+    await request('cvf:toggle-controls');
+    assert(dynamic.querySelector('[data-cvf-hide-btn]'), 'selection command includes newly loaded messages');
+    await request('cvf:reveal-all');
+    assert(!hidden('complete-row'), 'Restore all reveals the full row');
+    await request('cvf:toggle-controls');
+    await config({ messages: ['Edited text'], debugOutline: true });
+    assert(!hidden('complete-row') && !row.style.outline, 'legacy text and debug settings are ignored');
+    document.getElementById('results').textContent = results.join('\n') + '\nALL TESTS PASSED';
+  } catch (error) {
+    document.getElementById('results').textContent = results.join('\n') + '\nFAIL ' + error.stack;
+  }
+})();
+</script>

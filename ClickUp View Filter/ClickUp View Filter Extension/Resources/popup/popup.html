@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClickUp View Filter</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header><div><h1>ClickUp View Filter</h1><p class="muted">Your messages. Your view.</p></div><span class="version">0.6.0</span></header>
+  <label class="enabled"><span>Hide selected messages</span><input id="enabled" type="checkbox" role="switch" /></label>
+  <section class="controls" aria-label="Message controls">
+    <div class="shortcut"><span>Select messages to hide</span><kbd id="shortcut">⌘ ⇧ Y</kbd></div>
+    <p class="muted">Show Hide buttons, choose a message, then press the shortcut again to finish. Escape also closes the buttons.</p>
+    <button id="controls" class="primary" aria-pressed="false">Show Hide buttons</button>
+  </section>
+  <div class="actions"><button id="toggle" aria-pressed="false">Show hidden messages</button><button id="revealAll" class="restore">Restore all messages</button></div>
+  <details><summary>Channel settings</summary><label for="channelFilter">Only in this channel</label><input id="channelFilter" type="text" placeholder="All channels" spellcheck="false" /><p class="muted">Optional URL fragment. Changes save automatically.</p></details>
+  <footer><p id="status" class="status" role="status" aria-live="polite">Connecting to ClickUp…</p><button id="check" class="refresh" aria-label="Refresh page status" title="Refresh page status">↻</button></footer>
+  <p class="privacy">Only affects this browser. Nothing is deleted on ClickUp.</p>
+  <script src="popup.js"></script>
+</body>
+</html>
