@@ -14,7 +14,7 @@ xcodebuild \
   -scheme 'ClickUp View Filter' \
   -configuration Release \
   -derivedDataPath "$build_root" \
-  CURRENT_PROJECT_VERSION=4 MARKETING_VERSION=0.6.0 build
+  CURRENT_PROJECT_VERSION=4 MARKETING_VERSION=0.0.1 build
 
 built_app="$build_root/Build/Products/Release/ClickUp View Filter.app"
 installed_app='/Applications/ClickUp View Filter.app'
@@ -27,7 +27,7 @@ fi
 /usr/bin/codesign --verify --deep --strict "$installed_app"
 /usr/bin/open "$installed_app"
 
-print 'Installed ClickUp View Filter 0.6.0.'
+print 'Installed ClickUp View Filter 0.0.1.'
 print 'Quit Safari completely (Command-Q), reopen it, and reload ClickUp.'
 print 'The updated popup has a “Clear manual hides” button.'
 print "Build and previous app (if any): $build_root"
